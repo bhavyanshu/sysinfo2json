@@ -97,7 +97,7 @@ main() {
 
   echo "|>>>>>>>> Compiling..."
   filename=$(outputFile)
-  echo "{$logdetails,$motherboard,$cpu,$mem,$disk}" > $filename
+  echo "{$logdetails,$motherboard,$cpu,$mem,$disk}" > "${filename}"
 
   echo "|>>>>>>>> Done, Generated file -> $filename |"
 }
