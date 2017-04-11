@@ -5,6 +5,44 @@
 #usage: sudo bash sysinfo2json.sh
 #==============================================================================
 
+program_exists () {
+    type "$1" &> /dev/null ;
+}
+
+initUtil() {
+  if ! program_exists dmidecode ; then
+    echo "dmidecode is required. Installing dmidecode..."
+    whichLinux "dmidecode"
+  fi
+  if ! program_exists lshw ; then
+    echo "lshw is required. Installing lshw..."
+    whichLinux "lshw"
+  fi
+}
+
+whichLinux() {
+  program=$1
+  if [[ -f /etc/debian_version || -f /etc/debian_release || -f /etc/os-release ]]; then
+    install=$(apt-get install -y $program)
+  elif [[ -f /etc/SuSE-release || -f /etc/redhat-release || -f /etc/redhat_release ]]; then
+    install=$(rpm -i $program)
+  fi
+}
+
+getLogDetails() {
+  echo '"LoggedOn" : "'$(date "+%Y-%m-%d %H:%M:%S")'"'
+}
+
+getMotherboardInfo() {
+  start='"Motherboard" : {'
+  end='}'
+  mbinfo=$(dmidecode --type baseboard | grep 'Manufacturer\|Name\|Version\|Serial')
+  grep_processor=$(echo "$mbinfo" | perl -F: -alpe 's/.*:*/"$F[0]":"$F[1]"/' | tr -s '\n' ','  |  sed 's/\s\(":"\)\s/":"/g' | sed -zE 's/[[:space:]]+([:"a-zA-Z0-9])/\1/g' )
+  proc=${grep_processor::-1}
+  local mid=$mid$proc
+  echo $start${mid}$end
+}
+
 getCPUInfo() {
   cpufile="/proc/cpuinfo"
   start='"Processors" : ['
@@ -55,24 +93,10 @@ getDiskInfo() {
   echo $start${mid::-1}$end
 }
 
-getMotherboardInfo() {
-  start='"Motherboard" : {'
-  end='}'
-  mbinfo=$(dmidecode --type baseboard | grep 'Manufacturer\|Name\|Version\|Serial')
-  grep_processor=$(echo "$mbinfo" | perl -F: -alpe 's/.*:*/"$F[0]":"$F[1]"/' | tr -s '\n' ','  |  sed 's/\s\(":"\)\s/":"/g' | sed -zE 's/[[:space:]]+([:"a-zA-Z0-9])/\1/g' )
-  proc=${grep_processor::-1}
-  local mid=$mid$proc
-  echo $start${mid}$end
-}
-
 outputFile() {
   boardvendor=$(dmidecode -s baseboard-manufacturer)
   boardserial=$(dmidecode -s baseboard-serial-number)
   echo "$boardvendor-$boardserial.json"
-}
-
-getLogDetails() {
-  echo '"LoggedOn" : "'$(date "+%Y-%m-%d %H:%M:%S")'"'
 }
 
 main() {
@@ -81,6 +105,8 @@ main() {
      exit 1
   fi
 
+  echo "|>>>>>>>> Performing Initial Checks..."
+  initUtil
   logdetails=$(getLogDetails)
 
   echo "|>>>>>>>> Generating Motherboard Info..."
